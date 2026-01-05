@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
     JSON_LOGS: bool = True
-    DEBUG: bool = False
+    DEBUG: bool = True  # Enable debug to see actual errors
 
     class Config:
         case_sensitive = True
