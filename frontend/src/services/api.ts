@@ -31,6 +31,14 @@ class ApiError extends Error {
     }
 }
 
+function getAuthHeaders(): Record<string, string> {
+    const token = localStorage.getItem('token');
+    if (token) {
+        return { 'Authorization': `Bearer ${token}` };
+    }
+    return {};
+}
+
 async function request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -40,6 +48,7 @@ async function request<T>(
         ...options,
         headers: {
             "Content-Type": "application/json",
+            ...getAuthHeaders(),
             ...options.headers,
         },
     };
@@ -92,6 +101,7 @@ export const tenantApi = {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
+                ...getAuthHeaders(),
             },
         });
         
