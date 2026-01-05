@@ -31,7 +31,7 @@ def get_active_license(db: Session, tenant_id: str) -> Optional[License]:
 
 def generate_docker_compose(
     tenant: Tenant,
-    docker_image: str = "ghcr.io/riyadmehdi7/churnvision:latest",
+    docker_image: str = "ghcr.io/riyadmehdi7/churnvision_web_1_0:latest",
     admin_api_url: str = None,
 ) -> str:
     """Generate docker-compose.yml content"""
@@ -255,7 +255,7 @@ For assistance, contact your ChurnVision administrator.
 def generate_installation_package(
     db: Session,
     tenant: Tenant,
-    docker_image: str = "ghcr.io/riyadmehdi7/churnvision:latest",
+    docker_image: str = "ghcr.io/riyadmehdi7/churnvision_web_1_0:latest",
     admin_api_url: str = None,
     admin_api_key: str = None,
 ) -> bytes:
