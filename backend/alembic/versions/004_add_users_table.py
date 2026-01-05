@@ -11,6 +11,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision: str = "004"
@@ -20,25 +21,39 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Users table
-    op.create_table(
-        "users",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("email", sa.String(), nullable=False),
-        sa.Column("hashed_password", sa.String(), nullable=False),
-        sa.Column("full_name", sa.String(), nullable=True),
-        sa.Column("is_active", sa.Boolean(), default=True),
-        sa.Column("is_superuser", sa.Boolean(), default=False),
-        sa.Column("created_at", sa.DateTime(), default=sa.func.now()),
-        sa.Column(
-            "updated_at", sa.DateTime(), default=sa.func.now(), onupdate=sa.func.now()
-        ),
-    )
+    # Check if table already exists
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    tables = inspector.get_table_names()
 
-    # Create indexes
-    op.create_index("ix_users_email", "users", ["email"], unique=True)
+    if "users" not in tables:
+        # Users table
+        op.create_table(
+            "users",
+            sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+            sa.Column("email", sa.String(), nullable=False),
+            sa.Column("hashed_password", sa.String(), nullable=False),
+            sa.Column("full_name", sa.String(), nullable=True),
+            sa.Column("is_active", sa.Boolean(), default=True),
+            sa.Column("is_superuser", sa.Boolean(), default=False),
+            sa.Column("created_at", sa.DateTime(), default=sa.func.now()),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(),
+                default=sa.func.now(),
+                onupdate=sa.func.now(),
+            ),
+        )
+
+        # Create indexes
+        op.create_index("ix_users_email", "users", ["email"], unique=True)
 
 
 def downgrade() -> None:
-    op.drop_index("ix_users_email")
-    op.drop_table("users")
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    tables = inspector.get_table_names()
+
+    if "users" in tables:
+        op.drop_index("ix_users_email")
+        op.drop_table("users")
