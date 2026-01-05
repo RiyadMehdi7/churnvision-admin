@@ -305,7 +305,7 @@ def update_deployment_health(
 def download_installation_package(
     slug: str,
     docker_image: str = Query(
-        default="ghcr.io/riyadmehdi7/churnvision:latest",
+        default="ghcr.io/riyadmehdi7/churnvision_web_1_0:latest",
         description="Docker image to use in docker-compose.yml",
     ),
     admin_api_url: Optional[str] = Query(
