@@ -138,8 +138,8 @@ export const billingApi = {
             body: JSON.stringify(data),
         }),
 
-    getSubscriptions: (tenantId: string) =>
-        request<Subscription[]>(`/billing/subscriptions/${tenantId}`),
+    getSubscriptions: (tenantId?: string) =>
+        request<Subscription[]>(`/billing/subscriptions${tenantId ? `/${tenantId}` : ''}`),
 
     createInvoice: (data: InvoiceCreate) =>
         request<Invoice>("/billing/invoices", {
