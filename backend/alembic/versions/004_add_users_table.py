@@ -47,6 +47,15 @@ def upgrade() -> None:
 
         # Create indexes
         op.create_index("ix_users_email", "users", ["email"], unique=True)
+    else:
+        # Table exists - check if index exists, create if missing
+        indexes = inspector.get_indexes("users")
+        index_names = [idx["name"] for idx in indexes]
+        if "ix_users_email" not in index_names:
+            try:
+                op.create_index("ix_users_email", "users", ["email"], unique=True)
+            except Exception:
+                pass  # Index might already exist with different name
 
 
 def downgrade() -> None:
@@ -55,5 +64,8 @@ def downgrade() -> None:
     tables = inspector.get_table_names()
 
     if "users" in tables:
-        op.drop_index("ix_users_email")
+        try:
+            op.drop_index("ix_users_email")
+        except Exception:
+            pass
         op.drop_table("users")

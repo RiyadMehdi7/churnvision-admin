@@ -8,7 +8,11 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.logging_config import setup_logging, get_logger
-from app.middleware import LoggingMiddleware, ErrorHandlerMiddleware, RateLimiterMiddleware
+from app.middleware import (
+    LoggingMiddleware,
+    ErrorHandlerMiddleware,
+    RateLimiterMiddleware,
+)
 
 # Initialize logging
 setup_logging(log_level=settings.LOG_LEVEL, json_logs=settings.JSON_LOGS)
@@ -18,7 +22,7 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Internal control plane for ChurnVision Enterprise",
     version="0.1.0",
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
 )
 
 # Add middleware (order matters - first added = outermost)
@@ -55,22 +59,16 @@ def detailed_health_check(db: Session = Depends(get_db)):
         "timestamp": datetime.utcnow().isoformat(),
         "service": "admin-platform",
         "version": "0.1.0",
-        "checks": {}
+        "checks": {},
     }
 
     # Check database connectivity
     try:
         db.execute(text("SELECT 1"))
-        health_status["checks"]["database"] = {
-            "status": "healthy",
-            "latency_ms": None
-        }
+        health_status["checks"]["database"] = {"status": "healthy", "latency_ms": None}
     except Exception as e:
         health_status["status"] = "unhealthy"
-        health_status["checks"]["database"] = {
-            "status": "unhealthy",
-            "error": str(e)
-        }
+        health_status["checks"]["database"] = {"status": "unhealthy", "error": str(e)}
 
     # Add more health checks as needed
     health_status["checks"]["api"] = {"status": "healthy"}
@@ -89,6 +87,7 @@ def readiness_check(db: Session = Depends(get_db)):
         return {"ready": True}
     except Exception:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=503, detail="Service not ready")
 
 
@@ -99,3 +98,36 @@ def liveness_check():
     Returns 200 if the service is alive.
     """
     return {"alive": True}
+
+
+@app.get("/debug/tables")
+def debug_tables(db: Session = Depends(get_db)):
+    """Debug endpoint to check database tables"""
+    try:
+        # Check what tables exist
+        result = db.execute(
+            text("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+        """)
+        )
+        tables = [row[0] for row in result]
+
+        # Check users table structure if it exists
+        users_columns = []
+        if "users" in tables:
+            result = db.execute(
+                text("""
+                SELECT column_name, data_type, is_nullable
+                FROM information_schema.columns
+                WHERE table_name = 'users'
+            """)
+            )
+            users_columns = [
+                {"name": row[0], "type": row[1], "nullable": row[2]} for row in result
+            ]
+
+        return {"tables": tables, "users_columns": users_columns}
+    except Exception as e:
+        return {"error": str(e)}
