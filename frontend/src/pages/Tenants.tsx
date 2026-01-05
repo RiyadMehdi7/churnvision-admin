@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Download } from 'lucide-react';
 import { tenantApi } from '../services/api';
 import { Tenant, TenantCreate, TenantStatus, PricingTier } from '../types/api';
 
@@ -19,6 +20,8 @@ const Tenants = () => {
         name: '',
         slug: '',
         tier: PricingTier.STARTER,
+        max_employees: undefined,
+        max_users: 5,
     });
 
     const fetchTenants = async () => {
@@ -45,7 +48,7 @@ const Tenants = () => {
             setCreating(true);
             await tenantApi.create(newTenant);
             setShowCreateModal(false);
-            setNewTenant({ name: '', slug: '', tier: PricingTier.STARTER });
+            setNewTenant({ name: '', slug: '', tier: PricingTier.STARTER, max_employees: undefined, max_users: 5 });
             await fetchTenants();
         } catch (err) {
             console.error('Failed to create tenant:', err);
@@ -63,6 +66,15 @@ const Tenants = () => {
         } catch (err) {
             console.error('Failed to delete tenant:', err);
             setError('Failed to delete tenant');
+        }
+    };
+
+    const handleDownloadInstallPackage = async (slug: string) => {
+        try {
+            await tenantApi.downloadInstallPackage(slug);
+        } catch (err) {
+            console.error('Failed to download install package:', err);
+            setError('Failed to download installation package. Make sure tenant has an active license.');
         }
     };
 
@@ -134,6 +146,14 @@ const Tenants = () => {
                                         {tenant.region || '-'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                        <button
+                                            onClick={() => handleDownloadInstallPackage(tenant.slug)}
+                                            className="text-green-600 hover:text-green-900 inline-flex items-center"
+                                            title="Download Installation Package"
+                                        >
+                                            <Download size={16} className="mr-1" />
+                                            Install
+                                        </button>
                                         <button className="text-blue-600 hover:text-blue-900">Edit</button>
                                         <button
                                             onClick={() => handleDeleteTenant(tenant.slug)}
@@ -211,6 +231,26 @@ const Tenants = () => {
                                         value={newTenant.region || ''}
                                         onChange={(e) => setNewTenant({ ...newTenant, region: e.target.value })}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border px-3 py-2"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Max Employees (leave empty for unlimited)</label>
+                                    <input
+                                        type="number"
+                                        value={newTenant.max_employees || ''}
+                                        onChange={(e) => setNewTenant({ ...newTenant, max_employees: e.target.value ? parseInt(e.target.value) : undefined })}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border px-3 py-2"
+                                        placeholder="Unlimited"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Max Users</label>
+                                    <input
+                                        type="number"
+                                        value={newTenant.max_users || 5}
+                                        onChange={(e) => setNewTenant({ ...newTenant, max_users: parseInt(e.target.value) || 5 })}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border px-3 py-2"
+                                        min="1"
                                     />
                                 </div>
                             </div>

@@ -36,8 +36,11 @@ class TenantBase(BaseModel):
 
 
 class TenantCreate(TenantBase):
-    # Additional fields for creation
-    pass
+    """Schema for creating a new tenant"""
+
+    max_employees: Optional[int] = None  # None = unlimited
+    max_users: Optional[int] = 5
+    expiration_days: int = 365  # License expiration (default 1 year)
 
 
 class TenantUpdate(BaseModel):

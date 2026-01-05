@@ -76,6 +76,9 @@ export interface TenantCreate {
     industry?: string;
     region?: string;
     tier?: PricingTier;
+    max_employees?: number;
+    max_users?: number;
+    expiration_days?: number;
 }
 
 export interface TenantUpdate {

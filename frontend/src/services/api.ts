@@ -82,6 +82,35 @@ export const tenantApi = {
         request<void>(`/tenants/${slug}`, {
             method: "DELETE",
         }),
+    
+    downloadInstallPackage: async (slug: string, dockerImage?: string) => {
+        const params = new URLSearchParams();
+        if (dockerImage) params.set('docker_image', dockerImage);
+        
+        const url = `${API_BASE_URL}/tenants/${slug}/install-package${params.toString() ? `?${params}` : ''}`;
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: 'Download failed' }));
+            throw new ApiError(error.detail || 'Download failed', response.status);
+        }
+        
+        // Get the blob and trigger download
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `churnvision-${slug}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        document.body.removeChild(a);
+    },
 };
 
 // Release API

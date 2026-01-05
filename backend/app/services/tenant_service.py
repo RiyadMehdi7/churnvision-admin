@@ -9,9 +9,39 @@ from app.models.tenant import (
     TenantStatus,
 )
 from app.schemas.tenant import TenantCreate, TenantUpdate
+from app.schemas.license import LicenseCreate
+from app.services import license_service
 
 
-def create_tenant(db: Session, tenant_in: TenantCreate) -> Tenant:
+def create_tenant(
+    db: Session, tenant_in: TenantCreate, auto_generate_license: bool = True
+) -> Tenant:
+    """
+    Create a new tenant and optionally auto-generate a license.
+    """
+    # Default features based on tier
+    tier_features = {
+        "STARTER": ["home", "data-management", "settings"],
+        "PROFESSIONAL": [
+            "home",
+            "data-management",
+            "settings",
+            "ai-assistant",
+            "knowledge-base",
+        ],
+        "ENTERPRISE": [
+            "home",
+            "data-management",
+            "settings",
+            "ai-assistant",
+            "knowledge-base",
+            "playground",
+            "gdpr",
+        ],
+    }
+
+    features = tier_features.get(tenant_in.tier.value, [])
+
     db_tenant = Tenant(
         name=tenant_in.name,
         slug=tenant_in.slug,
@@ -19,11 +49,27 @@ def create_tenant(db: Session, tenant_in: TenantCreate) -> Tenant:
         industry=tenant_in.industry,
         region=tenant_in.region,
         status=TenantStatus.TRIAL,
-        features_enabled=[],
+        features_enabled=features,
+        max_employees=tenant_in.max_employees,
+        max_users=tenant_in.max_users or 5,
     )
     db.add(db_tenant)
     db.commit()
     db.refresh(db_tenant)
+
+    # Auto-generate license for the new tenant
+    if auto_generate_license:
+        license_data = LicenseCreate(
+            tenant_id=db_tenant.id,
+            expiration_days=365,  # 1 year default
+            max_employees=tenant_in.max_employees,
+            max_users=tenant_in.max_users or 5,
+            features=features,
+        )
+        license_service.generate_license(
+            db=db, license_in=license_data, performed_by="system"
+        )
+
     return db_tenant
 
 

@@ -1,5 +1,6 @@
-from typing import List, Dict
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Dict, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -8,6 +9,7 @@ from app.core.deps import get_current_user, verify_api_key
 from app.models.user import User
 from app.schemas import tenant as schemas
 from app.services import tenant_service
+from app.services import installation_service
 
 router = APIRouter()
 
@@ -294,3 +296,52 @@ def update_deployment_health(
         )
 
     return schemas.TenantDeploymentHealthResponse(acknowledged=True)
+
+
+# ===== Installation Package =====
+
+
+@router.get("/{slug}/install-package")
+def download_installation_package(
+    slug: str,
+    docker_image: str = Query(
+        default="ghcr.io/riyadmehdi7/churnvision:latest",
+        description="Docker image to use in docker-compose.yml",
+    ),
+    admin_api_url: Optional[str] = Query(
+        default=None, description="Admin API URL (defaults to production URL)"
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Download installation package for a tenant.
+
+    Returns a ZIP file containing:
+    - docker-compose.yml
+    - .env (with license key and configuration)
+    - README.md (installation instructions)
+
+    The package can be sent to the customer for installation.
+    """
+    tenant = tenant_service.get_tenant_by_slug(db, slug=slug)
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    try:
+        zip_bytes = installation_service.generate_installation_package(
+            db=db,
+            tenant=tenant,
+            docker_image=docker_image,
+            admin_api_url=admin_api_url,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    filename = f"churnvision-{slug}.zip"
+
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
