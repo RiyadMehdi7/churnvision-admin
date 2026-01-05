@@ -1,10 +1,12 @@
 # Render Blueprint - https://render.com/docs/blueprint-spec
 # Deploy with: render blueprint apply
+# FREE TIER CONFIGURATION
 
 services:
-  # Backend API
+  # Backend API (Free tier)
   - type: web
     name: churnvision-admin-api
+    plan: free
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
@@ -21,7 +23,7 @@ services:
       - key: CORS_ORIGINS
         sync: false  # Set this to your frontend URL after deploy
 
-  # Frontend (static site)
+  # Frontend (Static sites are always free on Render)
   - type: web
     name: churnvision-admin-frontend
     runtime: static
@@ -41,5 +43,5 @@ services:
 
 databases:
   - name: churnvision-admin-db
-    plan: free  # or starter for production
+    plan: free
     databaseName: churnvision_admin
