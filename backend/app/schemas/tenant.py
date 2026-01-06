@@ -155,18 +155,27 @@ class TenantConfigDict(BaseModel):
 class TenantDeploymentHealthUpdate(BaseModel):
     """
     Health update request from ChurnVision main app.
-    Matches the ChurnVision integration specification.
+
+    Privacy-focused: Only requires essential operational data.
+    - status: Is the system working?
+    - version: What version is running?
+    - uptime_seconds: Is the system stable?
+
+    All other fields are optional for backwards compatibility.
     """
 
+    # Required fields (essential for operational monitoring)
     status: str = Field(..., description="Health status: healthy, degraded, unhealthy")
-    database: bool = Field(True, description="Database connectivity status")
-    cache: bool = Field(True, description="Cache (Redis) connectivity status")
-    uptime_seconds: int = Field(0, description="Application uptime in seconds")
     version: str = Field("unknown", description="Deployed version")
-    platform: str = Field(
-        "unknown", description="Platform info (e.g., Linux-5.15.0-x86_64)"
+    uptime_seconds: int = Field(0, description="Application uptime in seconds")
+
+    # Optional fields (for backwards compatibility, no longer required)
+    database: Optional[bool] = Field(None, description="Database connectivity status")
+    cache: Optional[bool] = Field(None, description="Cache (Redis) connectivity status")
+    platform: Optional[str] = Field(
+        None, description="Platform info (e.g., Linux-5.15.0-x86_64)"
     )
-    python_version: str = Field("unknown", description="Python version")
+    python_version: Optional[str] = Field(None, description="Python version")
     installation_id: Optional[str] = Field(
         None, description="Unique installation identifier"
     )

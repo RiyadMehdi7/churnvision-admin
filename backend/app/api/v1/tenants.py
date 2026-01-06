@@ -259,12 +259,14 @@ def update_deployment_health(
     """
     Update health status for a tenant deployment.
 
-    Request body:
+    Required fields:
     - status: Health status (healthy, degraded, unhealthy)
+    - version: Deployed version
+    - uptime_seconds: Application uptime in seconds
+
+    Optional fields (for backwards compatibility):
     - database: Database connectivity (bool)
     - cache: Cache/Redis connectivity (bool)
-    - uptime_seconds: Application uptime
-    - version: Deployed version
     - platform: Platform info
     - python_version: Python version
     - installation_id: Unique installation identifier

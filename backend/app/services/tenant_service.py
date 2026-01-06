@@ -275,8 +275,8 @@ def update_deployment_health_extended(
     db: Session,
     tenant_id: str,
     status: str = "HEALTHY",
-    database_healthy: bool = True,
-    cache_healthy: bool = True,
+    database_healthy: Optional[bool] = None,
+    cache_healthy: Optional[bool] = None,
     uptime_seconds: int = 0,
     version: str = None,
     platform: str = None,
@@ -286,7 +286,10 @@ def update_deployment_health_extended(
 ) -> Optional[TenantDeployment]:
     """
     Update health status for a tenant deployment with extended fields.
-    Matches the ChurnVision integration specification.
+
+    Privacy-focused: Only status, version, and uptime_seconds are required.
+    Other fields (database_healthy, cache_healthy, platform, python_version)
+    are optional for backwards compatibility.
     """
     deployment = get_tenant_deployment(db, tenant_id)
     now = datetime.utcnow()
@@ -299,10 +302,14 @@ def update_deployment_health_extended(
         if version:
             deployment.current_version = version
 
-        # Update extended health fields
-        deployment.database_healthy = database_healthy
-        deployment.cache_healthy = cache_healthy
+        # Update uptime (always provided)
         deployment.uptime_seconds = uptime_seconds
+
+        # Update optional extended health fields only if provided
+        if database_healthy is not None:
+            deployment.database_healthy = database_healthy
+        if cache_healthy is not None:
+            deployment.cache_healthy = cache_healthy
         if platform:
             deployment.platform = platform
         if python_version:
@@ -320,8 +327,8 @@ def update_deployment_health_extended(
             current_version=version or "unknown",
             status=status.upper(),
             last_health_check=now,
-            database_healthy=database_healthy,
-            cache_healthy=cache_healthy,
+            database_healthy=database_healthy,  # May be None
+            cache_healthy=cache_healthy,  # May be None
             uptime_seconds=uptime_seconds,
             platform=platform,
             python_version=python_version,
