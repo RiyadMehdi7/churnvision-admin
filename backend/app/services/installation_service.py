@@ -47,20 +47,6 @@ services:
       - "3000:3000"
     env_file:
       - .env
-    environment:
-      # These override .env values if needed
-      - DATABASE_URL=${{DATABASE_URL}}
-      - REDIS_URL=${{REDIS_URL:-redis://redis:6379/0}}
-      - SECRET_KEY=${{SECRET_KEY}}
-      - LICENSE_KEY=${{LICENSE_KEY}}
-      - TENANT_SLUG=${{TENANT_SLUG}}
-      - ADMIN_API_URL=${{ADMIN_API_URL}}
-      - ADMIN_API_KEY=${{ADMIN_API_KEY}}
-      - LICENSE_VALIDATION_MODE=${{LICENSE_VALIDATION_MODE:-hybrid}}
-      - ENVIRONMENT=${{ENVIRONMENT:-production}}
-      - DEBUG=${{DEBUG:-false}}
-      - ALLOWED_ORIGINS=${{ALLOWED_ORIGINS:-http://localhost:3000}}
-      - ENCRYPTION_KEY=${{ENCRYPTION_KEY}}
     volumes:
       - churnvision_data:/app/churnvision_data
       - churnvision_models:/app/models
@@ -126,68 +112,89 @@ networks:
 def generate_env_file(
     tenant: Tenant, license_key: str, admin_api_url: str, admin_api_key: str
 ) -> str:
-    """Generate .env file content"""
+    """Generate .env file content matching main app's expected format"""
     import secrets
 
     # Generate secure random keys
-    secret_key = secrets.token_urlsafe(32)
+    jwt_secret_key = secrets.token_urlsafe(32)
     license_secret_key = secrets.token_urlsafe(32)
 
-    return f"""# ChurnVision Configuration for {tenant.name}
+    return f"""# =============================================================================
+# ChurnVision Enterprise - Customer Installation
+# =============================================================================
+# Customer: {tenant.name}
+# Tenant: {tenant.slug}
 # Generated: {datetime.utcnow().isoformat()}
 # DO NOT SHARE THIS FILE - Contains sensitive credentials
+# =============================================================================
 
-# ===== Environment =====
-# NOTE: Set to 'production' only after configuring all security settings below
-# Production mode enforces strict security requirements
+# =============================================================================
+# ENVIRONMENT
+# =============================================================================
 ENVIRONMENT=development
 DEBUG=false
 
-# ===== License Configuration =====
+# =============================================================================
+# DATABASE
+# =============================================================================
+# IMPORTANT: Change the password below before starting!
+POSTGRES_USER=churnvision
+POSTGRES_PASSWORD=CHANGE_THIS_PASSWORD
+POSTGRES_DB=churnvision
+DATABASE_URL=postgresql+asyncpg://churnvision:CHANGE_THIS_PASSWORD@db:5432/churnvision
+
+# =============================================================================
+# SECURITY
+# =============================================================================
+JWT_SECRET_KEY={jwt_secret_key}
+LICENSE_SECRET_KEY={license_secret_key}
+LICENSE_SIGNING_ALG=HS256
+
+# Field encryption (required for production)
+# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# ENCRYPTION_KEY=
+
+# =============================================================================
+# LICENSE - DO NOT MODIFY
+# =============================================================================
 LICENSE_KEY={license_key}
 TENANT_SLUG={tenant.slug}
 
-# ===== Admin Panel Connection =====
+# =============================================================================
+# ADMIN PANEL CONNECTION - DO NOT MODIFY
+# =============================================================================
 ADMIN_API_URL={admin_api_url}
 ADMIN_API_KEY={admin_api_key}
 LICENSE_VALIDATION_MODE=hybrid
 
-# ===== Security Configuration =====
-# IMPORTANT: Keep these secret keys secure!
-SECRET_KEY={secret_key}
-LICENSE_SECRET_KEY={license_secret_key}
-
-# Encryption key for PII data (salaries, etc.)
-# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-# REQUIRED for production mode
-ENCRYPTION_KEY=
-
-# ===== Database Configuration =====
-# IMPORTANT: Change the password below before starting!
-DATABASE_URL=postgresql+asyncpg://churnvision:CHANGE_THIS_PASSWORD@db:5432/churnvision
-POSTGRES_USER=churnvision
-POSTGRES_PASSWORD=CHANGE_THIS_PASSWORD
-POSTGRES_DB=churnvision
-
-# ===== Redis Configuration =====
-REDIS_URL=redis://redis:6379/0
-
-# ===== CORS Configuration =====
-# Add your frontend URL(s) here, comma-separated
-# For production, set to your actual domain (e.g., https://churnvision.yourcompany.com)
+# =============================================================================
+# CORS
+# =============================================================================
+# For production, change to your actual domain
 ALLOWED_ORIGINS=http://localhost:3000
 
-# ===== Production Mode Requirements =====
-# To enable ENVIRONMENT=production, you must also set:
-# 1. ENCRYPTION_KEY (generate using command above)
-# 2. ALLOWED_ORIGINS to your actual domain (not localhost)
-# 3. Change POSTGRES_PASSWORD to a strong password (16+ chars)
-# 4. Optionally configure integrity verification paths
-#
-# Production security settings (uncomment when ready):
-# INTEGRITY_REQUIRE_SIGNED=false
-# ARTIFACT_ENCRYPTION_REQUIRED=false
-# LICENSE_SIGNING_ALG=HS256
+# =============================================================================
+# REDIS
+# =============================================================================
+REDIS_URL=redis://redis:6379/0
+
+# =============================================================================
+# LLM CONFIGURATION (Optional)
+# =============================================================================
+# Default: Uses local Ollama (no external API needed)
+DEFAULT_LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://host.docker.internal:11434
+OLLAMA_MODEL=gemma3:4b
+
+# To use OpenAI instead:
+# DEFAULT_LLM_PROVIDER=openai
+# OPENAI_API_KEY=sk-...
+
+# =============================================================================
+# OPTIONAL SETTINGS
+# =============================================================================
+ARTIFACT_ENCRYPTION_REQUIRED=false
+ACTION_EXECUTION_ENABLED=false
 """
 
 
