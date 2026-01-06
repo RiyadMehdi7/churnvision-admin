@@ -131,14 +131,16 @@ def generate_env_file(
 
     # Generate secure random keys
     secret_key = secrets.token_urlsafe(32)
-    encryption_key_hint = '# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
+    license_secret_key = secrets.token_urlsafe(32)
 
     return f"""# ChurnVision Configuration for {tenant.name}
 # Generated: {datetime.utcnow().isoformat()}
 # DO NOT SHARE THIS FILE - Contains sensitive credentials
 
 # ===== Environment =====
-ENVIRONMENT=production
+# NOTE: Set to 'production' only after configuring all security settings below
+# Production mode enforces strict security requirements
+ENVIRONMENT=development
 DEBUG=false
 
 # ===== License Configuration =====
@@ -153,26 +155,39 @@ LICENSE_VALIDATION_MODE=hybrid
 # ===== Security Configuration =====
 # IMPORTANT: Keep these secret keys secure!
 SECRET_KEY={secret_key}
-{encryption_key_hint}
-ENCRYPTION_KEY=GENERATE_AND_SET_THIS
+LICENSE_SECRET_KEY={license_secret_key}
+
+# Encryption key for PII data (salaries, etc.)
+# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# REQUIRED for production mode
+ENCRYPTION_KEY=
 
 # ===== Database Configuration =====
-# IMPORTANT: Change the password below!
+# IMPORTANT: Change the password below before starting!
 DATABASE_URL=postgresql+asyncpg://churnvision:CHANGE_THIS_PASSWORD@db:5432/churnvision
 POSTGRES_USER=churnvision
 POSTGRES_PASSWORD=CHANGE_THIS_PASSWORD
 POSTGRES_DB=churnvision
 
 # ===== Redis Configuration =====
-REDIS_URL=redis://redis:6379
+REDIS_URL=redis://redis:6379/0
 
 # ===== CORS Configuration =====
 # Add your frontend URL(s) here, comma-separated
+# For production, set to your actual domain (e.g., https://churnvision.yourcompany.com)
 ALLOWED_ORIGINS=http://localhost:3000
 
-# ===== Application Settings =====
-# Uncomment and modify as needed
-# LOG_LEVEL=INFO
+# ===== Production Mode Requirements =====
+# To enable ENVIRONMENT=production, you must also set:
+# 1. ENCRYPTION_KEY (generate using command above)
+# 2. ALLOWED_ORIGINS to your actual domain (not localhost)
+# 3. Change POSTGRES_PASSWORD to a strong password (16+ chars)
+# 4. Optionally configure integrity verification paths
+#
+# Production security settings (uncomment when ready):
+# INTEGRITY_REQUIRE_SIGNED=false
+# ARTIFACT_ENCRYPTION_REQUIRED=false
+# LICENSE_SIGNING_ALG=HS256
 """
 
 
@@ -219,21 +234,26 @@ Edit the `.env` file and make these changes:
 **Required Changes:**
 - `POSTGRES_PASSWORD` - Set a secure database password (min 16 characters)
 - `DATABASE_URL` - Update with the same password you set above
-- `ENCRYPTION_KEY` - Generate and set (see command below)
-
-**Generate Encryption Key:**
-```bash
-python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
-
-**Optional but Recommended:**
-- `ALLOWED_ORIGINS` - Set to your domain(s) if not using localhost
 
 ```bash
 nano .env
 # or
 vim .env
 ```
+
+**Example password change:**
+```
+# Change this:
+POSTGRES_PASSWORD=CHANGE_THIS_PASSWORD
+DATABASE_URL=postgresql+asyncpg://churnvision:CHANGE_THIS_PASSWORD@db:5432/churnvision
+
+# To this (use your own strong password):
+POSTGRES_PASSWORD=MyStr0ng!Passw0rd2024
+DATABASE_URL=postgresql+asyncpg://churnvision:MyStr0ng!Passw0rd2024@db:5432/churnvision
+```
+
+**Note:** The app starts in `development` mode by default, which is suitable for 
+initial setup and testing. See "Production Mode" section below for hardening.
 
 ### 3. Start ChurnVision
 ```bash
@@ -352,12 +372,36 @@ docker-compose restart redis
 
 ---
 
+## Production Mode
+
+The app starts in `development` mode for easy initial setup. To enable production mode:
+
+1. **Generate encryption key:**
+```bash
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+2. **Update `.env` file:**
+```
+ENVIRONMENT=production
+ENCRYPTION_KEY=<paste-generated-key-here>
+ALLOWED_ORIGINS=https://churnvision.yourcompany.com
+```
+
+3. **Restart the application:**
+```bash
+docker-compose down && docker-compose up -d
+```
+
+---
+
 ## Security Notes
 
-1. **Change all default passwords** before deploying to production
+1. **Change all default passwords** before deploying
 2. **Keep your `.env` file secure** - it contains sensitive credentials
 3. **Use HTTPS** in production (configure a reverse proxy like nginx or traefik)
 4. **Regular backups** - schedule automated database backups
+5. **Enable production mode** once you've configured all security settings
 
 ---
 
