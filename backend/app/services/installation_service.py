@@ -110,7 +110,7 @@ networks:
 
 
 def generate_env_file(
-    tenant: Tenant, license_key: str, admin_api_url: str, admin_api_key: str
+    tenant: Tenant, license_key: str
 ) -> str:
     """Generate .env file content matching main app's expected format"""
     import secrets
@@ -158,14 +158,6 @@ LICENSE_SIGNING_ALG=HS256
 # LICENSE - DO NOT MODIFY
 # =============================================================================
 LICENSE_KEY={license_key}
-TENANT_SLUG={tenant.slug}
-
-# =============================================================================
-# ADMIN PANEL CONNECTION - DO NOT MODIFY
-# =============================================================================
-ADMIN_API_URL={admin_api_url}
-ADMIN_API_KEY={admin_api_key}
-LICENSE_VALIDATION_MODE=hybrid
 
 # =============================================================================
 # CORS
@@ -366,10 +358,10 @@ docker-compose exec db pg_isready -U churnvision
 ```
 
 ### License validation errors
-- Ensure your server has internet access to reach the Admin Panel
-- Check that `ADMIN_API_URL` and `ADMIN_API_KEY` in `.env` are correct
+- Ensure your server has internet access (required for license validation)
 - The application works offline for up to 30 days (grace period)
 - Check logs: `docker-compose logs churnvision | grep -i license`
+- Contact support if license validation keeps failing
 
 ### Redis connection issues
 ```bash
@@ -434,7 +426,6 @@ def generate_installation_package(
     tenant: Tenant,
     docker_image: str = "ghcr.io/riyadmehdi7/churnvision_web_1_0:latest",
     admin_api_url: str = None,
-    admin_api_key: str = None,
 ) -> bytes:
     """
     Generate a complete installation package as a ZIP file.
@@ -446,17 +437,13 @@ def generate_installation_package(
     if not license:
         raise ValueError(f"No active license found for tenant {tenant.slug}")
 
-    # Use provided or default values
+    # Admin Panel URL for docker-compose (not exposed to customer .env)
     if not admin_api_url:
         admin_api_url = "https://churnvision-admin-api.onrender.com/api/v1"
-    if not admin_api_key:
-        admin_api_key = settings.API_KEY
 
     # Generate file contents
     docker_compose = generate_docker_compose(tenant, docker_image, admin_api_url)
-    env_file = generate_env_file(
-        tenant, license.key_string, admin_api_url, admin_api_key
-    )
+    env_file = generate_env_file(tenant, license.key_string)
     readme = generate_readme(tenant, docker_image)
 
     # Create ZIP file in memory
