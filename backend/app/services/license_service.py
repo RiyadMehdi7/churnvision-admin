@@ -43,7 +43,7 @@ def generate_license(
     expires_at = issued_at + timedelta(days=license_in.expiration_days)
 
     payload = {
-        "iss": "churnvision.io",
+        "iss": "churnvision.tech",
         "sub": f"tenant_{tenant.slug}",
         "iat": issued_at,
         "exp": expires_at,
