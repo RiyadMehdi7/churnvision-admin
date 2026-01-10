@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
@@ -32,6 +33,16 @@ def get_licenses_by_tenant(db: Session, tenant_id: str) -> List[License]:
     return db.query(License).filter(License.tenant_id == tenant_id).all()
 
 
+def _map_tier_to_license_type(tier_value: str) -> str:
+    """Map tenant tier to license_type expected by main app"""
+    tier_mapping = {
+        "STARTER": "starter",
+        "PROFESSIONAL": "pro",
+        "ENTERPRISE": "enterprise",
+    }
+    return tier_mapping.get(tier_value, tier_value.lower())
+
+
 def generate_license(
     db: Session, license_in: LicenseCreate, performed_by: str = "system"
 ) -> License:
@@ -41,19 +52,41 @@ def generate_license(
 
     issued_at = datetime.utcnow()
     expires_at = issued_at + timedelta(days=license_in.expiration_days)
+    license_id = str(uuid.uuid4())[:16]  # Short unique ID
 
+    # JWT payload structure matching main app's decode_license() expectations
+    # Main app expects: company_name, license_type, max_employees, issued_at, expires_at, features
     payload = {
+        # Standard JWT claims
         "iss": "churnvision.tech",
         "sub": f"tenant_{tenant.slug}",
         "iat": issued_at,
         "exp": expires_at,
-        "features": license_in.features,
+
+        # Main app required fields (used by decode_license)
+        "company_name": tenant.name,
+        "license_type": _map_tier_to_license_type(tenant.tier.value),
+        "max_employees": license_in.max_employees or 100,
+        "issued_at": issued_at.isoformat(),  # ISO string for main app
+        "expires_at": expires_at.isoformat(),  # ISO string for main app
+        "features": license_in.features or [],
+        "license_id": license_id,
+
+        # Hardware/installation binding (set to None, main app will bind on first use)
+        "installation_id": None,
+        "hardware_id": None,
+        "enforce_hardware": False,  # Admin-issued licenses don't have hardware binding yet
+        "enforce_installation": False,
+
+        # Additional fields for admin panel integration
+        "tenant_slug": tenant.slug,
+        "max_users": license_in.max_users or 5,
+
+        # Legacy: keep limits object for backward compatibility
         "limits": {
             "max_employees": license_in.max_employees,
             "max_users": license_in.max_users,
         },
-        # Tenant slug for easy extraction by main app
-        "tenant_slug": tenant.slug,
     }
 
     # Embed optional keys in JWT claims (for main app to use)
