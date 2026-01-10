@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { licenseApi, tenantApi } from '../services/api';
-import { License, LicenseCreate, Tenant } from '../types/api';
+import { License, LicenseCreate, Tenant, EmbeddedKeys } from '../types/api';
 
 const Licenses = () => {
     const [licenses, setLicenses] = useState<License[]>([]);
@@ -9,12 +9,14 @@ const Licenses = () => {
     const [error, setError] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [creating, setCreating] = useState(false);
+    const [showEmbeddedKeys, setShowEmbeddedKeys] = useState(false);
     const [newLicense, setNewLicense] = useState<LicenseCreate>({
         tenant_id: '',
         expiration_days: 365,
         max_employees: undefined,
         max_users: 5,
         features: [],
+        embedded_keys: undefined,
     });
 
     const fetchData = async () => {
@@ -43,14 +45,32 @@ const Licenses = () => {
         e.preventDefault();
         try {
             setCreating(true);
-            await licenseApi.create(newLicense);
+            // Clean up embedded_keys before sending (remove empty values)
+            const licenseData = { ...newLicense };
+            if (licenseData.embedded_keys) {
+                const keys = licenseData.embedded_keys;
+                // Remove empty LLM keys
+                if (keys.llm_api_keys) {
+                    const llm = keys.llm_api_keys;
+                    if (!llm.openai && !llm.anthropic && !llm.google) {
+                        delete keys.llm_api_keys;
+                    }
+                }
+                // Remove embedded_keys entirely if empty
+                if (!keys.admin_api_key && !keys.llm_api_keys) {
+                    delete licenseData.embedded_keys;
+                }
+            }
+            await licenseApi.create(licenseData);
             setShowCreateModal(false);
+            setShowEmbeddedKeys(false);
             setNewLicense({
                 tenant_id: '',
                 expiration_days: 365,
                 max_employees: undefined,
                 max_users: 5,
                 features: [],
+                embedded_keys: undefined,
             });
             await fetchData();
         } catch (err) {
@@ -59,6 +79,30 @@ const Licenses = () => {
         } finally {
             setCreating(false);
         }
+    };
+
+    // Helper to update embedded keys
+    const updateEmbeddedKeys = (updates: Partial<EmbeddedKeys>) => {
+        setNewLicense(prev => ({
+            ...prev,
+            embedded_keys: {
+                ...prev.embedded_keys,
+                ...updates,
+            }
+        }));
+    };
+
+    const updateLLMKeys = (provider: 'openai' | 'anthropic' | 'google', value: string) => {
+        setNewLicense(prev => ({
+            ...prev,
+            embedded_keys: {
+                ...prev.embedded_keys,
+                llm_api_keys: {
+                    ...prev.embedded_keys?.llm_api_keys,
+                    [provider]: value || undefined,
+                }
+            }
+        }));
     };
 
     const handleRevokeLicense = async (licenseId: string) => {
@@ -256,6 +300,78 @@ const Licenses = () => {
                                         })}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border px-3 py-2"
                                     />
+                                </div>
+
+                                {/* Embedded Keys Section */}
+                                <div className="border-t pt-4 mt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowEmbeddedKeys(!showEmbeddedKeys)}
+                                        className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-900"
+                                    >
+                                        <span className={`transform transition-transform ${showEmbeddedKeys ? 'rotate-90' : ''}`}>
+                                            ▶
+                                        </span>
+                                        <span className="ml-2">Embedded API Keys (Optional)</span>
+                                    </button>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Keys embedded in the license JWT for customer use
+                                    </p>
+
+                                    {showEmbeddedKeys && (
+                                        <div className="mt-3 space-y-3 pl-4 border-l-2 border-gray-200">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">
+                                                    Admin Panel API Key
+                                                </label>
+                                                <input
+                                                    type="password"
+                                                    placeholder="Tenant's API key for admin panel auth"
+                                                    value={newLicense.embedded_keys?.admin_api_key || ''}
+                                                    onChange={(e) => updateEmbeddedKeys({ admin_api_key: e.target.value || undefined })}
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border px-3 py-2 text-sm"
+                                                />
+                                            </div>
+
+                                            <div className="pt-2">
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    LLM Provider Keys
+                                                </label>
+                                                <div className="space-y-2">
+                                                    <div>
+                                                        <label className="block text-xs text-gray-500">OpenAI</label>
+                                                        <input
+                                                            type="password"
+                                                            placeholder="sk-..."
+                                                            value={newLicense.embedded_keys?.llm_api_keys?.openai || ''}
+                                                            onChange={(e) => updateLLMKeys('openai', e.target.value)}
+                                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border px-3 py-2 text-sm"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-gray-500">Anthropic</label>
+                                                        <input
+                                                            type="password"
+                                                            placeholder="sk-ant-..."
+                                                            value={newLicense.embedded_keys?.llm_api_keys?.anthropic || ''}
+                                                            onChange={(e) => updateLLMKeys('anthropic', e.target.value)}
+                                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border px-3 py-2 text-sm"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-gray-500">Google AI</label>
+                                                        <input
+                                                            type="password"
+                                                            placeholder="AIza..."
+                                                            value={newLicense.embedded_keys?.llm_api_keys?.google || ''}
+                                                            onChange={(e) => updateLLMKeys('google', e.target.value)}
+                                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border px-3 py-2 text-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="mt-6 flex justify-end space-x-3">

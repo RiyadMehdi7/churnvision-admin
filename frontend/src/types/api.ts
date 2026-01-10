@@ -130,12 +130,26 @@ export interface License {
     revoked: boolean;
 }
 
+// Embedded keys for license JWT claims
+export interface LLMApiKeys {
+    openai?: string;
+    anthropic?: string;
+    google?: string;
+}
+
+export interface EmbeddedKeys {
+    admin_api_key?: string;
+    llm_api_keys?: LLMApiKeys;
+}
+
 export interface LicenseCreate {
     tenant_id: string;
     expiration_days?: number;
     max_employees?: number;
     max_users?: number;
     features?: string[];
+    // Keys to embed in the license JWT for customer use
+    embedded_keys?: EmbeddedKeys;
 }
 
 // Billing types

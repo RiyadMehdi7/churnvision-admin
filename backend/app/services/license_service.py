@@ -52,7 +52,34 @@ def generate_license(
             "max_employees": license_in.max_employees,
             "max_users": license_in.max_users,
         },
+        # Tenant slug for easy extraction by main app
+        "tenant_slug": tenant.slug,
     }
+
+    # Embed optional keys in JWT claims (for main app to use)
+    embedded_keys_audit = {}
+    if license_in.embedded_keys:
+        # Admin Panel API key for tenant authentication
+        if license_in.embedded_keys.admin_api_key:
+            payload["admin_api_key"] = license_in.embedded_keys.admin_api_key
+            embedded_keys_audit["admin_api_key"] = "***REDACTED***"
+
+        # LLM provider API keys
+        if license_in.embedded_keys.llm_api_keys:
+            llm_keys = {}
+            llm_keys_audit = {}
+            if license_in.embedded_keys.llm_api_keys.openai:
+                llm_keys["openai"] = license_in.embedded_keys.llm_api_keys.openai
+                llm_keys_audit["openai"] = "***REDACTED***"
+            if license_in.embedded_keys.llm_api_keys.anthropic:
+                llm_keys["anthropic"] = license_in.embedded_keys.llm_api_keys.anthropic
+                llm_keys_audit["anthropic"] = "***REDACTED***"
+            if license_in.embedded_keys.llm_api_keys.google:
+                llm_keys["google"] = license_in.embedded_keys.llm_api_keys.google
+                llm_keys_audit["google"] = "***REDACTED***"
+            if llm_keys:
+                payload["llm_api_keys"] = llm_keys
+                embedded_keys_audit["llm_api_keys"] = llm_keys_audit
 
     # Using HS256 for MVP, normally RS256 with private key
     encoded_jwt = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -68,12 +95,16 @@ def generate_license(
     )
     db.add(db_license)
 
-    # Audit Log
+    # Audit Log (with redacted keys for security)
+    audit_details = {"expiry_days": license_in.expiration_days}
+    if embedded_keys_audit:
+        audit_details["embedded_keys"] = embedded_keys_audit
+
     audit = LicenseAuditLog(
         license=db_license,
         action="ISSUED",
         performed_by=performed_by,
-        details={"expiry_days": license_in.expiration_days},
+        details=audit_details,
     )
     db.add(audit)
 

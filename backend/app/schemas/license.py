@@ -4,6 +4,25 @@ from datetime import datetime
 from uuid import UUID
 
 
+class LLMApiKeys(BaseModel):
+    """LLM provider API keys to embed in the license"""
+    openai: Optional[str] = Field(None, description="OpenAI API key")
+    anthropic: Optional[str] = Field(None, description="Anthropic API key")
+    google: Optional[str] = Field(None, description="Google AI API key")
+
+
+class EmbeddedKeys(BaseModel):
+    """Keys to embed in the license JWT for customer use"""
+    admin_api_key: Optional[str] = Field(
+        None,
+        description="API key for the customer to authenticate with Admin Panel"
+    )
+    llm_api_keys: Optional[LLMApiKeys] = Field(
+        None,
+        description="LLM provider API keys (OpenAI, Anthropic, Google)"
+    )
+
+
 class LicenseBase(BaseModel):
     expiration_days: int = 365
     max_employees: Optional[int] = None
@@ -13,6 +32,11 @@ class LicenseBase(BaseModel):
 
 class LicenseCreate(LicenseBase):
     tenant_id: UUID
+    # Embedded keys for customer use (stored in JWT claims)
+    embedded_keys: Optional[EmbeddedKeys] = Field(
+        None,
+        description="Keys to embed in the license JWT (admin_api_key, llm_api_keys)"
+    )
 
 
 class LicenseExtend(BaseModel):
